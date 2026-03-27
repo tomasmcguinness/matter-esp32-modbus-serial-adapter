@@ -14,6 +14,8 @@ extern "C" {
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "status_display.h"
+
 static const char *TAG = "Main";
 
 using namespace esp_matter;
@@ -107,6 +109,10 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16
 extern "C" void app_main()
 {
     nvs_flash_init();
+
+    StatusDisplayMgr().Init();
+    StatusDisplayMgr().TurnOn();
+    ESP_LOGI(TAG, "Display initialized");
 
     modbus_uart_init();
     ESP_LOGI(TAG, "Modbus UART initialized");

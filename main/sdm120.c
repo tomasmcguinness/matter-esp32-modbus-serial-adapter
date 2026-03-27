@@ -5,6 +5,7 @@
 #include "esp_log.h"
 
 extern void matter_update_voltage(float voltage_v);
+extern void status_display_update(float voltage, float current, float power, float energy);
 
 static const char *TAG = "SDM120M";
 
@@ -42,6 +43,8 @@ void sdm120_read_task(void *arg)
         {
             ESP_LOGI(TAG, "Total Energy: %.2f kWh", energy);
         }
+
+        status_display_update(voltage, current, power, energy);
 
         ESP_LOGI(TAG, "---");
         vTaskDelay(pdMS_TO_TICKS(5000));

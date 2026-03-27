@@ -1,2 +1,4 @@
 dependencies:
   espressif/esp_matter: "^1.4.0"
+  lvgl/lvgl: "8.3.0"
+  espressif/esp_lvgl_port: "^1"

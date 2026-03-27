@@ -8,7 +8,7 @@
 #define MODBUS_UART     UART_NUM_1
 #define TXD_PIN         16
 #define RXD_PIN         17
-#define DE_RE_PIN       23
+#define DE_RE_PIN       21
 #define MODBUS_SLAVE_ADDR 1
 
 static const char *TAG = "Modbus";
