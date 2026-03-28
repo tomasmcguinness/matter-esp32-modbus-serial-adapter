@@ -5,6 +5,8 @@
 
 #include <app/server/CommissioningWindowManager.h>
 #include <app/server/Server.h>
+#include <setup_payload/OnboardingCodesUtil.h>
+#include <setup_payload/QRCodeSetupPayloadGenerator.h>
 
 extern "C" {
 #include "modbus.h"
@@ -62,6 +64,33 @@ static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
     case chip::DeviceLayer::DeviceEventType::kCommissioningComplete:
         ESP_LOGI(TAG, "Commissioning complete");
         break;
+    case chip::DeviceLayer::DeviceEventType::kCommissioningWindowClosed:
+        ESP_LOGI(TAG, "Commissioning window closed");
+        StatusDisplayMgr().ClearCommissioningCode();
+        break;
+    case chip::DeviceLayer::DeviceEventType::kCommissioningWindowOpened:
+    {
+        ESP_LOGI(TAG, "Commissioning window opened");
+
+        chip::RendezvousInformationFlags rendezvousFlags = chip::RendezvousInformationFlags(chip::RendezvousInformationFlag::kBLE);
+
+        chip::PayloadContents payload;
+        GetPayloadContents(payload, rendezvousFlags);
+
+        char payloadBuffer[chip::QRCodeBasicSetupPayloadGenerator::kMaxQRCodeBase38RepresentationLength + 1];
+        chip::MutableCharSpan qrCode(payloadBuffer);
+
+        if (GetQRCode(qrCode, payload) == CHIP_NO_ERROR)
+        {
+            ESP_LOGI(TAG, "Generated QR CODE [%d]: %s", qrCode.size(), qrCode.data());
+            StatusDisplayMgr().SetCommissioningCode(qrCode.data(), qrCode.size());
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Failed to generate the commissioning QR code");
+        }
+        break;
+    }
     case chip::DeviceLayer::DeviceEventType::kFabricRemoved:
         ESP_LOGI(TAG, "Fabric removed");
         open_commissioning_window_if_necessary();

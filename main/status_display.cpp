@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "status_display.h"
 
 #include "driver/i2c_master.h"
@@ -73,17 +75,20 @@ esp_err_t StatusDisplay::Init()
 
     ESP_ERROR_CHECK(esp_lcd_panel_reset(mPanelHandle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(mPanelHandle));
-    esp_lcd_panel_io_tx_param(io_handle, 0x81, (uint8_t[]){0xFF}, 1); // Max contrast
 
     ESP_LOGI(TAG, "Initialize LVGL");
     const lvgl_port_cfg_t lvgl_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     lvgl_port_init(&lvgl_cfg);
 
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    ESP_LOGI(TAG, "Create LVGL Display");
+
     const lvgl_port_display_cfg_t disp_cfg = {
         .io_handle = io_handle,
         .panel_handle = mPanelHandle,
         .buffer_size = EXAMPLE_LCD_H_RES * EXAMPLE_LCD_V_RES,
-        .double_buffer = true,
+        .double_buffer = false,
         .hres = EXAMPLE_LCD_H_RES,
         .vres = EXAMPLE_LCD_V_RES,
         .monochrome = true,
@@ -97,27 +102,53 @@ esp_err_t StatusDisplay::Init()
 
     lv_disp_set_rotation(mDisplayHandle, LV_DISP_ROT_180);
 
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    ESP_LOGI(TAG, "Create LVGL Screen");
+
     lv_obj_t *scr = lv_scr_act();
+
+    ESP_LOGI(TAG, "LVGL Screen activated");
+
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    mQRCode = lv_qrcode_create(scr, 60,  lv_color_hex3(0xFF), lv_color_hex3(0x00));
+    lv_obj_align(mQRCode, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(mQRCode, LV_OBJ_FLAG_HIDDEN);
 
     mVoltageLabel = lv_label_create(scr);
     lv_label_set_text(mVoltageLabel, "V: --");
-    lv_obj_set_width(mVoltageLabel, mDisplayHandle->driver->hor_res);
+    lv_obj_set_width(mVoltageLabel, 128);
     lv_obj_align(mVoltageLabel, LV_ALIGN_TOP_LEFT, 0, 0);
+    
+    vTaskDelay(pdMS_TO_TICKS(100));
+
+    ESP_LOGI(TAG, "Voltage label finished");
 
     mCurrentLabel = lv_label_create(scr);
     lv_label_set_text(mCurrentLabel, "A: --");
-    lv_obj_set_width(mCurrentLabel, mDisplayHandle->driver->hor_res);
+    lv_obj_set_width(mCurrentLabel, 128);
     lv_obj_align(mCurrentLabel, LV_ALIGN_TOP_LEFT, 0, 16);
+
+    ESP_LOGI(TAG, "Current label finished");
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     mPowerLabel = lv_label_create(scr);
     lv_label_set_text(mPowerLabel, "W: --");
-    lv_obj_set_width(mPowerLabel, mDisplayHandle->driver->hor_res);
+    lv_obj_set_width(mPowerLabel, 128);
     lv_obj_align(mPowerLabel, LV_ALIGN_TOP_LEFT, 0, 32);
+
+    ESP_LOGI(TAG, "Power label finished");
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     mEnergyLabel = lv_label_create(scr);
     lv_label_set_text(mEnergyLabel, "kWh: --");
-    lv_obj_set_width(mEnergyLabel, mDisplayHandle->driver->hor_res);
+    lv_obj_set_width(mEnergyLabel, 128);
     lv_obj_align(mEnergyLabel, LV_ALIGN_TOP_LEFT, 0, 48);
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     ESP_LOGI(TAG, "StatusDisplay::Init() finished");
 
@@ -130,10 +161,35 @@ void StatusDisplay::TurnOn()
     esp_lcd_panel_disp_on_off(mPanelHandle, true);
 }
 
-void StatusDisplay::TurnOff()
+void StatusDisplay::ClearCommissioningCode()
 {
-    ESP_LOGI(TAG, "Turning display off");
-    esp_lcd_panel_disp_on_off(mPanelHandle, false);
+    ESP_LOGI(TAG, "Clearing commissioning code");
+
+    lvgl_port_lock(0);
+    lv_obj_add_flag(mQRCode, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(mVoltageLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(mCurrentLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(mPowerLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(mEnergyLabel, LV_OBJ_FLAG_HIDDEN);
+    lvgl_port_unlock();
+}
+
+void StatusDisplay::SetCommissioningCode(char *qrCode, size_t size)
+{
+    ESP_LOGI(TAG, "Set QR CODE [%d] %s", size, qrCode);
+    mCommissioningCode = (char *)calloc(1, size + 1);
+    memcpy(mCommissioningCode, qrCode, size);
+
+    lvgl_port_lock(0);
+    lv_qrcode_update(mQRCode, mCommissioningCode, strlen(mCommissioningCode));
+    lv_obj_clear_flag(mQRCode, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(mVoltageLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(mCurrentLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(mPowerLabel, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(mEnergyLabel, LV_OBJ_FLAG_HIDDEN);
+    lvgl_port_unlock();
+
+    free(mCommissioningCode);
 }
 
 extern "C" void status_display_update(float voltage, float current, float power, float energy)
