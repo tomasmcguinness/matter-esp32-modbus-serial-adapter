@@ -8,7 +8,8 @@
 #include <setup_payload/OnboardingCodesUtil.h>
 #include <setup_payload/QRCodeSetupPayloadGenerator.h>
 
-extern "C" {
+extern "C"
+{
 #include "modbus.h"
 #include "sdm120.h"
 }
@@ -17,6 +18,9 @@ extern "C" {
 #include "freertos/task.h"
 
 #include "status_display.h"
+#include "electrical_power_measurement_delegate.h"
+
+static chip::app::Clusters::ElectricalPowerMeasurement::ElectricalPowerMeasurementDelegate EPMDelegate;
 
 static const char *TAG = "Main";
 
@@ -104,33 +108,24 @@ static void app_event_cb(const ChipDeviceEvent *event, intptr_t arg)
 }
 
 static esp_err_t app_identification_cb(identification::callback_type_t type, uint16_t endpoint_id,
-                                        uint8_t effect_id, uint8_t effect_variant, void *priv_data)
+                                       uint8_t effect_id, uint8_t effect_variant, void *priv_data)
 {
     return ESP_OK;
 }
 
 extern "C" void matter_update_voltage(float voltage_v)
 {
-    uint16_t endpoint_id = electrical_sensor_endpoint_id;
-    int64_t voltage_mv = (int64_t)(voltage_v * 1000.0f);
-
-    // chip::DeviceLayer::SystemLayer().ScheduleLambda([endpoint_id, voltage_mv]() {
-    //     attribute_t *attr = attribute::get(endpoint_id,
-    //         ElectricalPowerMeasurement::Id,
-    //         ElectricalPowerMeasurement::Attributes::Voltage::Id);
-    //     esp_matter_attr_val_t val = esp_matter_invalid(NULL);
-    //     attribute::get_val(attr, &val);
-    //     val.val.i64 = voltage_mv;
-    //     attribute::update(endpoint_id,
-    //         ElectricalPowerMeasurement::Id,
-    //         ElectricalPowerMeasurement::Attributes::Voltage::Id,
-    //         &val);
-    // });
+    CHIP_ERROR err = chip::DeviceLayer::SystemLayer().ScheduleLambda([voltage_v] {
+        EPMDelegate.SetVoltage(chip::app::DataModel::MakeNullable((int64_t)(voltage_v * 1000.0f))); // V → mV
+    });
 }
 
-static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, uint16_t endpoint_id,
-                                          uint32_t cluster_id, uint32_t attribute_id,
-                                          esp_matter_attr_val_t *val, void *priv_data)
+static esp_err_t app_attribute_update_cb(attribute::callback_type_t type, 
+                                         uint16_t endpoint_id,
+                                         uint32_t cluster_id, 
+                                         uint32_t attribute_id,
+                                         esp_matter_attr_val_t *val, 
+                                         void *priv_data)
 {
     return ESP_OK;
 }
@@ -157,10 +152,16 @@ extern "C" void app_main()
 
     // Configure AC as the power type.
     electrical_sensor_config.electrical_power_measurement.feature_flags = electrical_power_measurement::feature::alternating_current::get_id();
+    electrical_sensor_config.electrical_power_measurement.delegate = &EPMDelegate;
 
     endpoint_t *endpoint = electrical_sensor::create(node, &electrical_sensor_config, ENDPOINT_FLAG_NONE, NULL);
     ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create electrical sensor endpoint"));
     electrical_sensor_endpoint_id = endpoint::get_id(endpoint);
+
+    cluster_t *cluster = esp_matter::cluster::get(endpoint, chip::app::Clusters::ElectricalPowerMeasurement::Id);
+    ABORT_APP_ON_FAILURE(cluster != nullptr, ESP_LOGE(TAG, "Failed to get EPM cluster from endpoint"));
+
+    esp_matter::cluster::electrical_power_measurement::attribute::create_voltage(cluster, 0);
 
     esp_err_t err = esp_matter::start(app_event_cb);
     if (err != ESP_OK)
