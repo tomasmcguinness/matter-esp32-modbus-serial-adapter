@@ -4,8 +4,8 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-extern void matter_update_voltage(float voltage_v);
-extern void status_display_update(float voltage, float current, float power, float energy);
+extern "C" void matter_update_voltage(float voltage_v);
+extern "C" void status_display_update(float voltage, float current, float power, float energy);
 
 static const char *TAG = "SDM120M";
 

@@ -6,9 +6,9 @@
 #include "esp_log.h"
 
 #define MODBUS_UART     UART_NUM_1
-#define TXD_PIN         16
-#define RXD_PIN         17
-#define DE_RE_PIN       21
+#define TXD_PIN         ((gpio_num_t)16)
+#define RXD_PIN         ((gpio_num_t)17)
+#define DE_RE_PIN       ((gpio_num_t)21)
 #define MODBUS_SLAVE_ADDR 1
 
 static const char *TAG = "Modbus";

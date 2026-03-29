@@ -8,11 +8,8 @@
 #include <setup_payload/OnboardingCodesUtil.h>
 #include <setup_payload/QRCodeSetupPayloadGenerator.h>
 
-extern "C"
-{
 #include "modbus.h"
 #include "sdm120.h"
-}
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -158,10 +155,10 @@ extern "C" void app_main()
     ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create electrical sensor endpoint"));
     electrical_sensor_endpoint_id = endpoint::get_id(endpoint);
 
-    cluster_t *cluster = esp_matter::cluster::get(endpoint, chip::app::Clusters::ElectricalPowerMeasurement::Id);
+    cluster_t *cluster = cluster::get(endpoint, chip::app::Clusters::ElectricalPowerMeasurement::Id);
     ABORT_APP_ON_FAILURE(cluster != nullptr, ESP_LOGE(TAG, "Failed to get EPM cluster from endpoint"));
 
-    esp_matter::cluster::electrical_power_measurement::attribute::create_voltage(cluster, 0);
+    electrical_power_measurement::attribute::create_voltage(cluster, 0);
 
     esp_err_t err = esp_matter::start(app_event_cb);
     if (err != ESP_OK)
