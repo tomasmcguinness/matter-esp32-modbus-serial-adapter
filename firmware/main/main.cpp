@@ -112,8 +112,22 @@ static esp_err_t app_identification_cb(identification::callback_type_t type, uin
 
 extern "C" void matter_update_voltage(float voltage_v)
 {
-    CHIP_ERROR err = chip::DeviceLayer::SystemLayer().ScheduleLambda([voltage_v] {
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([voltage_v] {
         EPMDelegate.SetVoltage(chip::app::DataModel::MakeNullable((int64_t)(voltage_v * 1000.0f))); // V → mV
+    });
+}
+
+extern "C" void matter_update_current(float current_a)
+{
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([current_a] {
+        EPMDelegate.SetActiveCurrent(chip::app::DataModel::MakeNullable((int64_t)(current_a * 1000.0f))); // A → mA
+    });
+}
+
+extern "C" void matter_update_power(float power_w)
+{
+    chip::DeviceLayer::SystemLayer().ScheduleLambda([power_w] {
+        EPMDelegate.SetActivePower(chip::app::DataModel::MakeNullable((int64_t)(power_w * 1000.0f))); // W → mW
     });
 }
 
@@ -159,6 +173,8 @@ extern "C" void app_main()
     ABORT_APP_ON_FAILURE(cluster != nullptr, ESP_LOGE(TAG, "Failed to get EPM cluster from endpoint"));
 
     electrical_power_measurement::attribute::create_voltage(cluster, 0);
+    electrical_power_measurement::attribute::create_active_current(cluster, 0);
+    electrical_power_measurement::attribute::create_active_power(cluster, 0);
 
     esp_err_t err = esp_matter::start(app_event_cb);
     if (err != ESP_OK)

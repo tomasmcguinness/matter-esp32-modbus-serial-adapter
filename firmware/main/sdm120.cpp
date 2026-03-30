@@ -5,6 +5,8 @@
 #include "esp_log.h"
 
 extern "C" void matter_update_voltage(float voltage_v);
+extern "C" void matter_update_current(float current_a);
+extern "C" void matter_update_power(float power_w);
 extern "C" void status_display_update(float voltage, float current, float power, float energy);
 
 static const char *TAG = "SDM120M";
@@ -32,11 +34,13 @@ void sdm120_read_task(void *arg)
         if (modbus_read_float_register(6, &current) == ESP_OK)
         {
             ESP_LOGI(TAG, "Current: %.2f A", current);
+            matter_update_current(current);
         }
 
         if (modbus_read_float_register(12, &power) == ESP_OK)
         {
             ESP_LOGI(TAG, "Active Power: %.2f W", power);
+            matter_update_power(power);
         }
 
         if (modbus_read_float_register(26, &energy) == ESP_OK)
