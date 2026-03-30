@@ -10,3 +10,14 @@ The readings from this device will be exposed using as a Matter Electrical Senso
 # Hardware - Seeed XIAO ESP32-C6
 
 The GPIOs in code has been selected for the XIAO ESP32-C6. 
+
+| GPIO | Connection |
+|------|------------|
+| 16 | MAX485 - DI   | 
+| 17 | MAX485 - RO   |
+| 21 | MAX485 - DE/RE|
+| 22 | OLED - SDA |
+| 23 | OLED - SCL |
+| 2  | OLED - RESET |
+
+Ensure there is a 120kΩ across PINS A&B of the MAX485.
