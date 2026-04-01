@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Serial Sender</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+    #connect { background: #4CAF50; color: white; border: none; border-radius: 4px; }
+    #send { background: #2196F3; color: white; border: none; border-radius: 4px; }
+    #send:disabled { background: #ccc; cursor: not-allowed; }
+    pre {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+    #log {
+      background: #1e1e1e;
+      color: #0f0;
+      padding: 12px;
+      border-radius: 4px;
+      min-height: 120px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+    .status { margin: 12px 0; font-weight: bold; }
+    .connected { color: #4CAF50; }
+    .disconnected { color: #f44336; }
+  </style>
+</head>
+<body>
+  <h1>ESP32 Serial Sender</h1>
+
+  <div>
+    <button id="connect">Connect</button>
+    <button id="send" disabled>Send Payload</button>
+  </div>
+
+  <p class="status disconnected" id="status">Disconnected</p>
+
+  <h3>Payload</h3>
+  <pre id="payload"></pre>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script>
+    const payload = {
+      command: "set_config",
+      meter: {
+        baud_rate: 9600,
+        address: 1
+      }
+    };
+
+    document.getElementById('payload').textContent = JSON.stringify(payload, null, 2);
+
+    let port = null;
+    let reader = null;
+
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    const sendBtn = document.getElementById('send');
+    const connectBtn = document.getElementById('connect');
+
+    function log(msg) {
+      const time = new Date().toLocaleTimeString();
+      logEl.textContent += `[${time}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    connectBtn.addEventListener('click', async () => {
+      if (port) {
+        // Disconnect
+        if (reader) {
+          await reader.cancel();
+          reader = null;
+        }
+        await port.close();
+        port = null;
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'status disconnected';
+        connectBtn.textContent = 'Connect';
+        sendBtn.disabled = true;
+        log('Disconnected.');
+        return;
+      }
+
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 115200 });
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'status connected';
+        connectBtn.textContent = 'Disconnect';
+        sendBtn.disabled = false;
+        log('Connected to serial port.');
+        readLoop();
+      } catch (err) {
+        log('Connection failed: ' + err.message);
+      }
+    });
+
+    async function readLoop() {
+      const decoder = new TextDecoderStream();
+      const readableStreamClosed = port.readable.pipeTo(decoder.writable);
+      reader = decoder.readable.getReader();
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          log('RX: ' + value);
+        }
+      } catch (err) {
+        log('Read error: ' + err.message);
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      if (!port) return;
+
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(JSON.stringify(payload) + '\n');
+        const writer = port.writable.getWriter();
+        await writer.write(data);
+        writer.releaseLock();
+        log('TX: ' + JSON.stringify(payload));
+      } catch (err) {
+        log('Send failed: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
