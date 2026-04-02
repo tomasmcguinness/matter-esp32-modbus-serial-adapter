@@ -144,47 +144,47 @@ static esp_err_t app_attribute_update_cb(attribute::callback_type_t type,
 
 extern "C" void app_main()
 {
-    // nvs_flash_init();
+    nvs_flash_init();
 
-    // StatusDisplayMgr().Init();
-    // StatusDisplayMgr().TurnOn();
-    // ESP_LOGI(TAG, "Display initialized");
+    StatusDisplayMgr().Init();
+    StatusDisplayMgr().TurnOn();
+    ESP_LOGI(TAG, "Display initialized");
 
     usb_serial_init();
 
-    // modbus_uart_init();
-    // ESP_LOGI(TAG, "Modbus UART initialized");
+    modbus_uart_init();
+    ESP_LOGI(TAG, "Modbus UART initialized");
 
-    // // Create the root endpoint
-    // node::config_t node_config;
-    // node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
-    // ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
+    // Create the root endpoint
+    node::config_t node_config;
+    node_t *node = node::create(&node_config, app_attribute_update_cb, app_identification_cb);
+    ABORT_APP_ON_FAILURE(node != nullptr, ESP_LOGE(TAG, "Failed to create Matter node"));
 
-    // electrical_sensor::config_t electrical_sensor_config;
-    // // Configure the sensor as a node.
-    // electrical_sensor_config.power_topology.feature_flags = power_topology::feature::node_topology::get_id();
+    electrical_sensor::config_t electrical_sensor_config;
+    // Configure the sensor as a node.
+    electrical_sensor_config.power_topology.feature_flags = power_topology::feature::node_topology::get_id();
 
-    // // Configure AC as the power type.
-    // electrical_sensor_config.electrical_power_measurement.feature_flags = electrical_power_measurement::feature::alternating_current::get_id();
-    // electrical_sensor_config.electrical_power_measurement.delegate = &EPMDelegate;
+    // Configure AC as the power type.
+    electrical_sensor_config.electrical_power_measurement.feature_flags = electrical_power_measurement::feature::alternating_current::get_id();
+    electrical_sensor_config.electrical_power_measurement.delegate = &EPMDelegate;
 
-    // endpoint_t *endpoint = electrical_sensor::create(node, &electrical_sensor_config, ENDPOINT_FLAG_NONE, NULL);
-    // ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create electrical sensor endpoint"));
-    // electrical_sensor_endpoint_id = endpoint::get_id(endpoint);
+    endpoint_t *endpoint = electrical_sensor::create(node, &electrical_sensor_config, ENDPOINT_FLAG_NONE, NULL);
+    ABORT_APP_ON_FAILURE(endpoint != nullptr, ESP_LOGE(TAG, "Failed to create electrical sensor endpoint"));
+    electrical_sensor_endpoint_id = endpoint::get_id(endpoint);
 
-    // cluster_t *cluster = cluster::get(endpoint, chip::app::Clusters::ElectricalPowerMeasurement::Id);
-    // ABORT_APP_ON_FAILURE(cluster != nullptr, ESP_LOGE(TAG, "Failed to get EPM cluster from endpoint"));
+    cluster_t *cluster = cluster::get(endpoint, chip::app::Clusters::ElectricalPowerMeasurement::Id);
+    ABORT_APP_ON_FAILURE(cluster != nullptr, ESP_LOGE(TAG, "Failed to get EPM cluster from endpoint"));
 
-    // electrical_power_measurement::attribute::create_voltage(cluster, 0);
-    // electrical_power_measurement::attribute::create_active_current(cluster, 0);
-    // electrical_power_measurement::attribute::create_active_power(cluster, 0);
+    electrical_power_measurement::attribute::create_voltage(cluster, 0);
+    electrical_power_measurement::attribute::create_active_current(cluster, 0);
+    electrical_power_measurement::attribute::create_active_power(cluster, 0);
 
-    // esp_err_t err = esp_matter::start(app_event_cb);
-    // if (err != ESP_OK)
-    // {
-    //     ESP_LOGE(TAG, "Failed to start Matter: %d", err);
-    //     return;
-    // }
+    esp_err_t err = esp_matter::start(app_event_cb);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to start Matter: %d", err);
+        return;
+    }
 
-    // xTaskCreate(sdm120_read_task, "sdm120m_read", 4096, NULL, 5, NULL);
+    xTaskCreate(sdm120_read_task, "sdm120m_read", 4096, NULL, 5, NULL);
 }
